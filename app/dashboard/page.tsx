@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
 type Stats = { new_count: number; in_inspection: number; needs_quote: number; sent: number; approved: number; };
 
