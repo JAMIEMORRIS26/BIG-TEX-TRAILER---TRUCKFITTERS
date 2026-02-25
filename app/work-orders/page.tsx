@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import Link from "next/link";
 
 type WorkOrder = {
   id: string;
@@ -112,7 +113,7 @@ export default function WorkOrdersPage() {
             </thead>
             <tbody>
               {rows.map(r => (
-                <tr key={r.id}>
+               <tr key={r.id} style={{cursor:"pointer"}} onClick={() => window.location.href = `/work-orders/${r.id}`}>
                   <td className="small">{new Date(r.created_at).toLocaleString()}</td>
                   <td>
                     <div style={{fontWeight:700}}>{r.customer_name}</div>
