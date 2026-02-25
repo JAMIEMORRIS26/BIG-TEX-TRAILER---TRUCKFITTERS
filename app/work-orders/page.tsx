@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type WorkOrder = {
   id: string;
@@ -18,6 +18,7 @@ type WorkOrder = {
 const STATUSES = ["NEW","IN_INSPECTION","NEEDS_QUOTE","SENT","APPROVED","IN_PROGRESS","COMPLETED"];
 
 export default function WorkOrdersPage() {
+  const router = useRouter();
   const [rows, setRows] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -113,7 +114,11 @@ export default function WorkOrdersPage() {
             </thead>
             <tbody>
               {rows.map(r => (
-               <tr key={r.id} style={{cursor:"pointer"}} onClick={() => window.location.href = `/work-orders/${r.id}`}>
+              <tr
+  key={r.id}
+  style={{ cursor: "pointer" }}
+  onClick={() => router.push(`/work-orders/${r.id}`)}
+>
                   <td className="small">{new Date(r.created_at).toLocaleString()}</td>
                   <td>
                     <div style={{fontWeight:700}}>{r.customer_name}</div>
@@ -122,7 +127,13 @@ export default function WorkOrdersPage() {
                   <td className="small">{[r.trailer_type, r.axle_count ? `${r.axle_count} axles`:"", r.axle_rating].filter(Boolean).join(" • ")}</td>
                   <td><span className="badge">{r.status}</span></td>
                   <td>
-                    <select className="input" style={{maxWidth:220}} value={r.status} onChange={(e)=>setStatus(r.id, e.target.value)}>
+                    <select
+  className="input"
+  style={{ maxWidth: 220 }}
+  value={r.status}
+  onClick={(e) => e.stopPropagation()}
+  onChange={(e) => setStatus(r.id, e.target.value)}
+>
                       {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </td>
