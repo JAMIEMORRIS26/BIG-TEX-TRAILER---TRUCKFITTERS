@@ -114,13 +114,15 @@ export default function WorkOrdersPage() {
             </thead>
             <tbody>
               {rows.map(r => (
-              <tr
-  key={r.id}
-  style={{ cursor: "pointer" }}
-  onClick={() => router.push(`/work-orders/${r.id}`)}
->
+       <tr key={r.id} style={{ cursor: "pointer" }}>
                   <td className="small">{new Date(r.created_at).toLocaleString()}</td>
-                  <td>
+                  <td
+  className="small"
+  style={{ cursor: "pointer", fontWeight: 600 }}
+  onClick={() => (window.location.href = `/work-orders/${r.id}`)}
+>
+  {new Date(r.created_at).toLocaleString()}
+</td>
                     <div style={{fontWeight:700}}>{r.customer_name}</div>
                     <div className="small">{r.customer_phone || ""}</div>
                   </td>
