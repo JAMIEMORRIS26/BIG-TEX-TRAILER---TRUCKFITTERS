@@ -15,10 +15,19 @@ type WorkOrder = {
   created_at: string;
 };
 
-const STATUSES = ["NEW","IN_INSPECTION","NEEDS_QUOTE","SENT","APPROVED","IN_PROGRESS","COMPLETED"];
+const STATUSES = [
+  "NEW",
+  "IN_INSPECTION",
+  "NEEDS_QUOTE",
+  "SENT",
+  "APPROVED",
+  "IN_PROGRESS",
+  "COMPLETED",
+];
 
 export default function WorkOrdersPage() {
   const router = useRouter();
+
   const [rows, setRows] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -30,78 +39,147 @@ export default function WorkOrdersPage() {
   const [axleRating, setAxleRating] = useState("7K");
 
   async function load() {
-    setLoading(true); setErr(null);
+    setLoading(true);
+    setErr(null);
+
     const { data, error } = await supabase
       .from("work_orders")
-      .select("id,status,customer_name,customer_phone,trailer_type,axle_count,axle_rating,created_at")
+      .select(
+        "id,status,customer_name,customer_phone,trailer_type,axle_count,axle_rating,created_at"
+      )
       .order("created_at", { ascending: false })
       .limit(50);
+
     setLoading(false);
+
     if (error) setErr(error.message);
-    else setRows((data ?? []) as any);
+    else setRows((data ?? []) as WorkOrder[]);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   async function createWO() {
     setErr(null);
+
     const { error } = await supabase.from("work_orders").insert({
       status: "NEW",
-      customer_name: customerName,
-      customer_phone: customerPhone || null,
-      trailer_type: trailerType,
-      axle_count: axleCount,
-      axle_rating: axleRating
+      customer_name: customerName.trim(),
+      customer_phone: customerPhone.trim() || null,
+      trailer_type: trailerType.trim() || null,
+      axle_count: Number.isFinite(axleCount) ? axleCount : null,
+      axle_rating: axleRating.trim() || null,
     });
-    if (error) setErr(error.message);
-    else {
-      setCustomerName(""); setCustomerPhone("");
-      await load();
+
+    if (error) {
+      setErr(error.message);
+      return;
     }
+
+    setCustomerName("");
+    setCustomerPhone("");
+    await load();
   }
 
   async function setStatus(id: string, status: string) {
-    const { error } = await supabase.from("work_orders").update({ status }).eq("id", id);
+    const { error } = await supabase
+      .from("work_orders")
+      .update({ status })
+      .eq("id", id);
+
     if (error) setErr(error.message);
     else await load();
   }
 
+  function goToWorkOrder(id: string) {
+    router.push(`/work-orders/${id}`);
+  }
+
   return (
     <div className="row">
-      <div className="card" style={{flex:"1 1 360px"}}>
-        <h2 style={{marginTop:0}}>Create Work Order</h2>
-        <div style={{marginBottom:10}}>
+      {/* LEFT: Create */}
+      <div className="card" style={{ flex: "1 1 360px" }}>
+        <h2 style={{ marginTop: 0 }}>Create Work Order</h2>
+
+        <div style={{ marginBottom: 10 }}>
           <label className="label">Customer name</label>
-          <input className="input" value={customerName} onChange={(e)=>setCustomerName(e.target.value)} />
+          <input
+            className="input"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+          />
         </div>
-        <div style={{marginBottom:10}}>
+
+        <div style={{ marginBottom: 10 }}>
           <label className="label">Phone</label>
-          <input className="input" value={customerPhone} onChange={(e)=>setCustomerPhone(e.target.value)} />
+          <input
+            className="input"
+            value={customerPhone}
+            onChange={(e) => setCustomerPhone(e.target.value)}
+          />
         </div>
+
         <div className="row">
-          <div style={{flex:"1 1 140px"}}>
+          <div style={{ flex: "1 1 140px" }}>
             <label className="label">Trailer type</label>
-            <input className="input" value={trailerType} onChange={(e)=>setTrailerType(e.target.value)} />
+            <input
+              className="input"
+              value={trailerType}
+              onChange={(e) => setTrailerType(e.target.value)}
+            />
           </div>
-          <div style={{flex:"1 1 140px"}}>
+
+          <div style={{ flex: "1 1 140px" }}>
             <label className="label">Axle count</label>
-            <input className="input" type="number" value={axleCount} onChange={(e)=>setAxleCount(parseInt(e.target.value || "0",10))} />
+            <input
+              className="input"
+              type="number"
+              value={axleCount}
+              onChange={(e) =>
+                setAxleCount(parseInt(e.target.value || "0", 10))
+              }
+            />
           </div>
-          <div style={{flex:"1 1 140px"}}>
+
+          <div style={{ flex: "1 1 140px" }}>
             <label className="label">Axle rating</label>
-            <input className="input" value={axleRating} onChange={(e)=>setAxleRating(e.target.value)} />
+            <input
+              className="input"
+              value={axleRating}
+              onChange={(e) => setAxleRating(e.target.value)}
+            />
           </div>
         </div>
-        <div style={{marginTop:12}}>
-          <button className="btn primary" onClick={createWO} disabled={!customerName}>Create</button>
+
+        <div style={{ marginTop: 12 }}>
+          <button
+            className="btn primary"
+            onClick={createWO}
+            disabled={!customerName.trim()}
+          >
+            Create
+          </button>
         </div>
-        {err && <p className="small" style={{marginTop:10}}>Error: {err}</p>}
-        <p className="small" style={{marginTop:10}}>Tip: After inspection, move status to <b>NEEDS_QUOTE</b>.</p>
+
+        {err && (
+          <p className="small" style={{ marginTop: 10 }}>
+            Error: {err}
+          </p>
+        )}
+
+        <p className="small" style={{ marginTop: 10 }}>
+          Tip: After inspection, move status to <b>NEEDS_QUOTE</b>.
+        </p>
       </div>
 
-      <div className="card" style={{flex:"3 1 520px"}}>
-        <h2 style={{marginTop:0}}>Recent Work Orders</h2>
-        {loading ? <p className="small">Loading…</p> : (
+      {/* RIGHT: List */}
+      <div className="card" style={{ flex: "3 1 520px" }}>
+        <h2 style={{ marginTop: 0 }}>Recent Work Orders</h2>
+
+        {loading ? (
+          <p className="small">Loading…</p>
+        ) : (
           <table className="table">
             <thead>
               <tr>
@@ -112,31 +190,47 @@ export default function WorkOrdersPage() {
                 <th>Change</th>
               </tr>
             </thead>
+
             <tbody>
-              {rows.map(r => (
-       <tr key={r.id} style={{ cursor: "pointer" }}>
-                  <td className="small">{new Date(r.created_at).toLocaleString()}</td>
-                  <td
-  className="small"
-  style={{ cursor: "pointer", fontWeight: 600 }}
-  onClick={() => (window.location.href = `/work-orders/${r.id}`)}
->
-  {new Date(r.created_at).toLocaleString()}
-</td>
-                    <div style={{fontWeight:700}}>{r.customer_name}</div>
+              {rows.map((r) => (
+                <tr
+                  key={r.id}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => goToWorkOrder(r.id)}
+                  title="Open work order"
+                >
+                  <td className="small">
+                    {new Date(r.created_at).toLocaleString()}
+                  </td>
+
+                  <td className="small">
+                    <div style={{ fontWeight: 700 }}>{r.customer_name}</div>
                     <div className="small">{r.customer_phone || ""}</div>
                   </td>
-                  <td className="small">{[r.trailer_type, r.axle_count ? `${r.axle_count} axles`:"", r.axle_rating].filter(Boolean).join(" • ")}</td>
-                  <td><span className="badge">{r.status}</span></td>
+
+                  <td className="small">
+                    {[r.trailer_type, r.axle_count ? `${r.axle_count} axles` : "", r.axle_rating]
+                      .filter(Boolean)
+                      .join(" • ")}
+                  </td>
+
+                  <td>
+                    <span className="badge">{r.status}</span>
+                  </td>
+
                   <td>
                     <select
-  className="input"
-  style={{ maxWidth: 220 }}
-  value={r.status}
-  onClick={(e) => e.stopPropagation()}
-  onChange={(e) => setStatus(r.id, e.target.value)}
->
-                      {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                      className="input"
+                      style={{ maxWidth: 220 }}
+                      value={r.status}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setStatus(r.id, e.target.value)}
+                    >
+                      {STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
                     </select>
                   </td>
                 </tr>
