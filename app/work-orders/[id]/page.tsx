@@ -1,89 +1,176 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../../../lib/supabaseClient";
 import { useParams } from "next/navigation";
 
-export default function WorkOrderDetailPage() {
-  const params = useParams();
-  const id = params?.id as string;
+export default function WorkOrderDetail() {
+  const { id } = useParams();
 
   const [workOrder, setWorkOrder] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [inspection, setInspection] = useState<any>(null);
+  const [quote, setQuote] = useState<any>(null);
+  const [lines, setLines] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
 
-  useEffect(() => {
-    load();
-  }, [id]);
+  const [newLine, setNewLine] = useState({ description: "", qty: 1, price: 0 });
 
   async function load() {
-    setLoading(true);
+    const { data: wo } = await supabase.from("work_orders").select("*").eq("id", id).single();
+    setWorkOrder(wo);
 
-    const { data, error } = await supabase
-      .from("work_orders")
-      .select("*")
-      .eq("id", id)
-      .single();
+    const { data: insp } = await supabase.from("inspections").select("*").eq("work_order_id", id).single();
+    setInspection(insp);
 
-    if (!error) setWorkOrder(data);
+    const { data: q } = await supabase.from("quotes").select("*").eq("work_order_id", id).single();
+    setQuote(q);
 
-    setLoading(false);
+    if (q) {
+      const { data: l } = await supabase.from("quote_lines").select("*").eq("quote_id", q.id);
+      setLines(l || []);
+    }
+
+    const { data: p } = await supabase.from("photos").select("*").eq("work_order_id", id);
+    setPhotos(p || []);
   }
 
-  async function update(field: string, value: any) {
-    const { error } = await supabase
-      .from("work_orders")
-      .update({ [field]: value })
-      .eq("id", id);
+  useEffect(() => {
+    if (id) load();
+  }, [id]);
 
-    if (!error) load();
+  async function saveInspection() {
+    await supabase.from("inspections").upsert({
+      work_order_id: id,
+      ...inspection
+    });
+    load();
   }
 
-  if (loading) return <div className="card">Loading...</div>;
+  async function createQuote() {
+    const { data } = await supabase.from("quotes").insert({
+      work_order_id: id
+    }).select().single();
+    setQuote(data);
+  }
 
-  if (!workOrder) return <div className="card">Not found</div>;
+  async function addLine() {
+    if (!quote) return;
+
+    const total = newLine.qty * newLine.price;
+
+    await supabase.from("quote_lines").insert({
+      quote_id: quote.id,
+      description: newLine.description,
+      qty: newLine.qty,
+      price: newLine.price,
+      total
+    });
+
+    setNewLine({ description: "", qty: 1, price: 0 });
+    load();
+  }
+
+  async function uploadPhoto(e: any) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const { data } = await supabase.storage.from("photos").upload(`${id}/${file.name}`, file);
+
+    const publicUrl = supabase.storage.from("photos").getPublicUrl(data.path).data.publicUrl;
+
+    await supabase.from("photos").insert({
+      work_order_id: id,
+      url: publicUrl
+    });
+
+    load();
+  }
+
+  if (!workOrder) return <p>Loading...</p>;
 
   return (
-    <div className="card">
-      <h2>Work Order Detail</h2>
+    <div style={{ padding: 20 }}>
+      <h2>Work Order: {workOrder.customer_name}</h2>
 
-      <div style={{ marginTop: 10 }}>
-        <b>Customer Name</b>
-        <input
-          className="input"
-          value={workOrder.customer_name || ""}
-          onChange={(e) => update("customer_name", e.target.value)}
-        />
+      {/* INSPECTION */}
+      <h3>Inspection</h3>
+      <div>
+        {["brakes","bearings","wiring","tires","frame"].map(field => (
+          <label key={field} style={{ marginRight: 15 }}>
+            <input
+              type="checkbox"
+              checked={inspection?.[field] || false}
+              onChange={(e) => setInspection({ ...inspection, [field]: e.target.checked })}
+            />
+            {field}
+          </label>
+        ))}
+        <div>
+          <textarea
+            placeholder="Inspection notes"
+            value={inspection?.notes || ""}
+            onChange={(e) => setInspection({ ...inspection, notes: e.target.value })}
+          />
+        </div>
+        <button onClick={saveInspection}>Save Inspection</button>
       </div>
 
-      <div style={{ marginTop: 10 }}>
-        <b>Phone</b>
-        <input
-          className="input"
-          value={workOrder.customer_phone || ""}
-          onChange={(e) => update("customer_phone", e.target.value)}
-        />
+      {/* PHOTOS */}
+      <h3>Photos</h3>
+      <input type="file" onChange={uploadPhoto} />
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {photos.map(p => (
+          <img key={p.id} src={p.url} width={150} />
+        ))}
       </div>
 
-      <div style={{ marginTop: 10 }}>
-        <b>Status</b>
-        <select
-          className="input"
-          value={workOrder.status}
-          onChange={(e) => update("status", e.target.value)}
-        >
-          <option value="NEW">NEW</option>
-          <option value="IN_INSPECTION">IN INSPECTION</option>
-          <option value="NEEDS_QUOTE">NEEDS QUOTE</option>
-          <option value="IN_PROGRESS">IN PROGRESS</option>
-          <option value="COMPLETED">COMPLETED</option>
-        </select>
-      </div>
+      {/* QUOTE */}
+      <h3>Quote</h3>
+      {!quote ? (
+        <button onClick={createQuote}>Create Quote</button>
+      ) : (
+        <div>
+          <div>
+            <input
+              placeholder="Description"
+              value={newLine.description}
+              onChange={(e) => setNewLine({ ...newLine, description: e.target.value })}
+            />
+            <input
+              type="number"
+              value={newLine.qty}
+              onChange={(e) => setNewLine({ ...newLine, qty: Number(e.target.value) })}
+            />
+            <input
+              type="number"
+              value={newLine.price}
+              onChange={(e) => setNewLine({ ...newLine, price: Number(e.target.value) })}
+            />
+            <button onClick={addLine}>Add Line</button>
+          </div>
 
-      <div style={{ marginTop: 20 }}>
-        <button className="btn" onClick={load}>
-          Refresh
-        </button>
-      </div>
+          <table border={1} cellPadding={5}>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map(l => (
+                <tr key={l.id}>
+                  <td>{l.description}</td>
+                  <td>{l.qty}</td>
+                  <td>${l.price}</td>
+                  <td>${l.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
