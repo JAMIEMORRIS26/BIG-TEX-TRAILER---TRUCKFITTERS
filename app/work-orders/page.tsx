@@ -27,7 +27,6 @@ const STATUSES = [
 
 export default function WorkOrdersPage() {
   const router = useRouter();
-
   const [rows, setRows] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -51,7 +50,6 @@ export default function WorkOrdersPage() {
       .limit(50);
 
     setLoading(false);
-
     if (error) setErr(error.message);
     else setRows((data ?? []) as WorkOrder[]);
   }
@@ -65,21 +63,19 @@ export default function WorkOrdersPage() {
 
     const { error } = await supabase.from("work_orders").insert({
       status: "NEW",
-      customer_name: customerName.trim(),
-      customer_phone: customerPhone.trim() || null,
-      trailer_type: trailerType.trim() || null,
-      axle_count: Number.isFinite(axleCount) ? axleCount : null,
-      axle_rating: axleRating.trim() || null,
+      customer_name: customerName,
+      customer_phone: customerPhone || null,
+      trailer_type: trailerType,
+      axle_count: axleCount,
+      axle_rating: axleRating,
     });
 
-    if (error) {
-      setErr(error.message);
-      return;
+    if (error) setErr(error.message);
+    else {
+      setCustomerName("");
+      setCustomerPhone("");
+      await load();
     }
-
-    setCustomerName("");
-    setCustomerPhone("");
-    await load();
   }
 
   async function setStatus(id: string, status: string) {
@@ -92,13 +88,8 @@ export default function WorkOrdersPage() {
     else await load();
   }
 
-  function goToWorkOrder(id: string) {
-    router.push(`/work-orders/${id}`);
-  }
-
   return (
     <div className="row">
-      {/* LEFT: Create */}
       <div className="card" style={{ flex: "1 1 360px" }}>
         <h2 style={{ marginTop: 0 }}>Create Work Order</h2>
 
@@ -156,7 +147,7 @@ export default function WorkOrdersPage() {
           <button
             className="btn primary"
             onClick={createWO}
-            disabled={!customerName.trim()}
+            disabled={!customerName}
           >
             Create
           </button>
@@ -173,7 +164,6 @@ export default function WorkOrdersPage() {
         </p>
       </div>
 
-      {/* RIGHT: List */}
       <div className="card" style={{ flex: "3 1 520px" }}>
         <h2 style={{ marginTop: 0 }}>Recent Work Orders</h2>
 
@@ -196,14 +186,13 @@ export default function WorkOrdersPage() {
                 <tr
                   key={r.id}
                   style={{ cursor: "pointer" }}
-                  onClick={() => goToWorkOrder(r.id)}
-                  title="Open work order"
+                  onClick={() => router.push(`/work-orders/${r.id}`)}
                 >
                   <td className="small">
                     {new Date(r.created_at).toLocaleString()}
                   </td>
 
-                  <td className="small">
+                  <td>
                     <div style={{ fontWeight: 700 }}>{r.customer_name}</div>
                     <div className="small">{r.customer_phone || ""}</div>
                   </td>
@@ -224,7 +213,10 @@ export default function WorkOrdersPage() {
                       style={{ maxWidth: 220 }}
                       value={r.status}
                       onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => setStatus(r.id, e.target.value)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setStatus(r.id, e.target.value);
+                      }}
                     >
                       {STATUSES.map((s) => (
                         <option key={s} value={s}>
