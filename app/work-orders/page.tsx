@@ -50,6 +50,7 @@ export default function WorkOrdersPage() {
       .limit(50);
 
     setLoading(false);
+
     if (error) setErr(error.message);
     else setRows((data ?? []) as WorkOrder[]);
   }
@@ -63,29 +64,31 @@ export default function WorkOrdersPage() {
 
     const { error } = await supabase.from("work_orders").insert({
       status: "NEW",
-      customer_name: customerName,
-      customer_phone: customerPhone || null,
-      trailer_type: trailerType,
+      customer_name: customerName.trim(),
+      customer_phone: customerPhone.trim() || null,
+      trailer_type: trailerType.trim() || null,
       axle_count: axleCount,
-      axle_rating: axleRating,
+      axle_rating: axleRating.trim() || null,
     });
 
-    if (error) setErr(error.message);
-    else {
-      setCustomerName("");
-      setCustomerPhone("");
-      await load();
+    if (error) {
+      setErr(error.message);
+      return;
     }
+
+    setCustomerName("");
+    setCustomerPhone("");
+    await load();
   }
 
   async function setStatus(id: string, status: string) {
-    const { error } = await supabase
-      .from("work_orders")
-      .update({ status })
-      .eq("id", id);
-
+    const { error } = await supabase.from("work_orders").update({ status }).eq("id", id);
     if (error) setErr(error.message);
     else await load();
+  }
+
+  function openWO(id: string) {
+    router.push(`/work-orders/${id}`);
   }
 
   return (
@@ -99,6 +102,7 @@ export default function WorkOrdersPage() {
             className="input"
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="Type customer name"
           />
         </div>
 
@@ -108,6 +112,7 @@ export default function WorkOrdersPage() {
             className="input"
             value={customerPhone}
             onChange={(e) => setCustomerPhone(e.target.value)}
+            placeholder="Optional"
           />
         </div>
 
@@ -127,9 +132,7 @@ export default function WorkOrdersPage() {
               className="input"
               type="number"
               value={axleCount}
-              onChange={(e) =>
-                setAxleCount(parseInt(e.target.value || "0", 10))
-              }
+              onChange={(e) => setAxleCount(Number(e.target.value || 0))}
             />
           </div>
 
@@ -147,7 +150,8 @@ export default function WorkOrdersPage() {
           <button
             className="btn primary"
             onClick={createWO}
-            disabled={!customerName}
+            disabled={!customerName.trim()}
+            title={!customerName.trim() ? "Enter customer name first" : "Create work order"}
           >
             Create
           </button>
@@ -186,11 +190,9 @@ export default function WorkOrdersPage() {
                 <tr
                   key={r.id}
                   style={{ cursor: "pointer" }}
-                  onClick={() => router.push(`/work-orders/${r.id}`)}
+                  onClick={() => openWO(r.id)}
                 >
-                  <td className="small">
-                    {new Date(r.created_at).toLocaleString()}
-                  </td>
+                  <td className="small">{new Date(r.created_at).toLocaleString()}</td>
 
                   <td>
                     <div style={{ fontWeight: 700 }}>{r.customer_name}</div>
@@ -212,11 +214,8 @@ export default function WorkOrdersPage() {
                       className="input"
                       style={{ maxWidth: 220 }}
                       value={r.status}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        setStatus(r.id, e.target.value);
-                      }}
+                      onClick={(e) => e.stopPropagation()}   // IMPORTANT
+                      onChange={(e) => setStatus(r.id, e.target.value)}
                     >
                       {STATUSES.map((s) => (
                         <option key={s} value={s}>
